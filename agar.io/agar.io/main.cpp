@@ -114,7 +114,7 @@ BOOL InCircle(int x, int y, int mx, int my ,float BSIZE)
 		return FALSE;
 }
 
-static RECT clientRECT;
+static RECT clientRECT,FixedclientRECT;
 static Players pls;
 static Virus vis;
 static POINT destination;
@@ -443,7 +443,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		pls.data[0].FromY = 375;
 		ZoomIn = 0;
 		GetClientRect(hWnd, &clientRECT);
-
+		GetClientRect(hWnd, &FixedclientRECT);
 		for (int i = 0; i < 60; i++)
 		{
 			Seed[i].x = rand() % clientRECT.right;
@@ -588,17 +588,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				//	TextOut(memDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2 - 10, L"Game Over. Press r to Restart.", 30);
 				//}
 			}
-			float Fixation = (clientRECT.right + ZoomIn*10)/clientRECT.right;
-
+			float Fixation;
+			Fixation = (clientRECT.right + ZoomIn*10)/clientRECT.right;
+			
 			for (int i = 0; i < 60; i++)
 			{
 				hBrush = CreateSolidBrush(SeedColor[i]);
 				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-				Ellipse(memDC, Seed[i].x*Fixation - 5 - Fixation, Seed[i].y*Fixation - 5 - Fixation, Seed[i].x*Fixation + 5 + Fixation, Seed[i].y*Fixation + 5 + Fixation);								//Seed
+				Ellipse(memDC, Seed[i].x*Fixation - 5 - Fixation, Seed[i].y*Fixation - 5 - Fixation, Seed[i].x*Fixation + 5 + Fixation, Seed[i].y*Fixation + 5 + Fixation);				//Seed
 				SelectObject(memDC, oldBrush);
 				DeleteObject(hBrush);
 			}
 			//
+		
 			if (MySeed.head != NULL)																					//MySeed
 			{
 				for (tmpNode = MySeed.head; tmpNode->pNext != MySeed.head; tmpNode = tmpNode->pNext)
@@ -613,7 +615,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 					}
 					hBrush = CreateSolidBrush(tmpNode->c);
 					oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-					Ellipse(memDC, tmpNode->pt.x - 5, tmpNode->pt.y - 5, tmpNode->pt.x + 5, tmpNode->pt.y + 5);
+					Ellipse(memDC, tmpNode->pt.x*Fixation - 5 -Fixation, tmpNode->pt.y*Fixation - 5-Fixation, tmpNode->pt.x*Fixation + 5+Fixation, tmpNode->pt.y*Fixation + 5+Fixation);
 					SelectObject(memDC, oldBrush);
 					DeleteObject(hBrush);
 
@@ -626,7 +628,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				}
 				hBrush = CreateSolidBrush(tmpNode->c);
 				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-				Ellipse(memDC, tmpNode->pt.x - 5, tmpNode->pt.y - 5, tmpNode->pt.x + 5, tmpNode->pt.y + 5);
+				Ellipse(memDC, tmpNode->pt.x*Fixation - 5 - Fixation, tmpNode->pt.y*Fixation - 5 - Fixation, tmpNode->pt.x*Fixation + 5 + Fixation, tmpNode->pt.y*Fixation + 5 + Fixation);
 				SelectObject(memDC, oldBrush);
 				DeleteObject(hBrush);
 
@@ -638,7 +640,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			SetBkColor(memDC, RGB(240, 120, 0));
 			for (int i = 0; i < pls.PlayerNumbers; i++)
 			{
-				Ellipse(memDC, pls.data[i].x*Fixation - pls.data[i].rad, pls.data[i].y*Fixation - pls.data[i].rad, pls.data[i].x*Fixation + pls.data[i].rad, pls.data[i].y*Fixation + pls.data[i].rad); //Player
+				Ellipse(memDC, pls.data[i].x*Fixation - pls.data[i].rad*Fixation, pls.data[i].y*Fixation - pls.data[i].rad*Fixation, pls.data[i].x*Fixation + pls.data[i].rad*Fixation, pls.data[i].y*Fixation + pls.data[i].rad*Fixation); //Player
 			}
 			SelectObject(memDC, oldBrush);
 			DeleteObject(hBrush);
@@ -648,7 +650,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			SetBkColor(memDC, RGB(100, 120, 240));
 			for (int i = 0; i < vis.VirusNumbers; i++)
 			{
-				Ellipse(memDC, vis.data[i].x - vis.data[i].rad, vis.data[i].y - vis.data[i].rad, vis.data[i].x + vis.data[i].rad, vis.data[i].y + vis.data[i].rad); //Virus
+				Ellipse(memDC, vis.data[i].x*Fixation - vis.data[i].rad*Fixation, vis.data[i].y*Fixation - vis.data[i].rad*Fixation, vis.data[i].x*Fixation + vis.data[i].rad*Fixation, vis.data[i].y*Fixation + vis.data[i].rad*Fixation); //Virus
 			}
 			SelectObject(memDC, oldBrush);
 			DeleteObject(hBrush);
@@ -658,7 +660,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				SetBkColor(memDC, RGB(255, 255, 255));
 				TextOut(memDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2 - 10, L"Game Over. Press r to Restart.", 30);
 			}
-			BitBlt(hDC, 0, 0, clientRECT.right, clientRECT.bottom, memDC, pls.data[0].x*Fixation - clientRECT.right / 2, pls.data[0].y*Fixation - clientRECT.bottom / 2, SRCCOPY);
+			BitBlt(hDC, 0, 0, clientRECT.right, clientRECT.bottom, memDC, (pls.data[0].x )*Fixation - clientRECT.right / 2, (pls.data[0].y)*Fixation - clientRECT.bottom / 2, SRCCOPY);
 		}
 		//StretchBlt(hDC,0,0, clientRECT.right, clientRECT.bottom, memDC, pls.data[0].x - 150, pls.data[0].y - 150, 300, 300, SRCCOPY);
 		
@@ -778,8 +780,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 
 		if (zDelta > 0)
 		{
-			if (ZoomIn < 15)
+			if (ZoomIn < 20)
 			{
+				FixedclientRECT.bottom + 5;
+				FixedclientRECT.left - 5;
+				FixedclientRECT.right + 5;
+				FixedclientRECT.top - 5;
 				ZoomIn++;
 			}
 			FixMode = TRUE;
@@ -787,12 +793,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		else
 		{
 			ZoomIn--;
-			if (ZoomIn < 0)
+			FixedclientRECT.bottom - 5;
+			FixedclientRECT.left + 5;
+			FixedclientRECT.right - 5;
+			FixedclientRECT.top + 5;
+			if (ZoomIn <= 0)
 			{
 				ZoomIn = 0;
 				FixMode = FALSE;
 			}
 		}
+		
 	}
 		break;
 	case WM_DESTROY: //Destroy 메세지 불렸을 때
