@@ -149,6 +149,10 @@ static BOOL FixMode = FALSE;
 
 static int PandemicTick;
 static int TrapTick;
+static POINT NewTrapPoint;
+static float orion[5];
+
+static int PlayTimer=0;
 
 void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 {
@@ -160,6 +164,9 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 	case CandyMovementManage:
 	{
 		ClickTick++;
+		if (isGameOver != TRUE)
+			PlayTimer++;
+
 		for (int i = 0; i < pls.PlayerNumbers; i++)
 		{
 			float angle;
@@ -171,6 +178,8 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 			{
 				angle = atan2(destination.x - clientRECT.right / 2, destination.y - clientRECT.bottom / 2);
 			}
+			if (pls.MAXradius < pls.data[i].rad)
+				pls.MAXradius = pls.data[i].rad;
 
 			//Tickx = ((float)destination.x - (float)pls.data[i].FromX) / pls.data[i].rad;
 			//Ticky = ((float)destination.y - (float)pls.data[i].FromY) / pls.data[i].rad;
@@ -194,8 +203,7 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 					if (pls.data[i].rad < 270)
 					{
 						pls.data[i].rad += 2;
-						if (pls.MAXradius < pls.data[i].rad)
-							pls.MAXradius = pls.data[i].rad;
+						
 					}
 				}
 			}
@@ -422,7 +430,7 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 						pls.PlayerNumbers--;
 						if (pls.PlayerNumbers == 0)
 						{
-							isGameOver = true;
+							isGameOver = TRUE;
 							FixMode = FALSE;
 						}
 					}
@@ -451,13 +459,17 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 		TrapTick++;
 		if (TrapTick > 99)
 		{
+			for (int i = 0; i < 5; i++)
+				orion[i] = 0.1;
 			if (trs.TrapNumbers >= 10)
 				break;
 			TrapTick = 0;
-			trs.data[trs.TrapNumbers].x = rand() % clientRECT.right - 80 + 40;
-			trs.data[trs.TrapNumbers].y = rand() % clientRECT.bottom - 80 + 40;
+			trs.data[trs.TrapNumbers].x = NewTrapPoint.x;
+			trs.data[trs.TrapNumbers].y = NewTrapPoint.y;
 			trs.data[trs.TrapNumbers].dir = atan2(trs.data[trs.TrapNumbers].x - rand() % clientRECT.right, trs.data[trs.TrapNumbers].y - rand() % clientRECT.bottom);
 			trs.TrapNumbers++;
+			NewTrapPoint.x = rand() % clientRECT.right - 80 + 40;
+			NewTrapPoint.y = rand() % clientRECT.bottom - 80 + 40;
 		}
 		for (int i = 0; i < trs.TrapNumbers; i++)
 		{
@@ -490,10 +502,10 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 						{
 							pls.data[pls.PlayerNumbers].x = pls.data[j].x + ((rand() % 100 + pls.data[j].rad) - 100);
 							pls.data[pls.PlayerNumbers].y = pls.data[j].y + ((rand() % 200 + pls.data[j].rad) - 100);
-							pls.data[pls.PlayerNumbers].rad = pls.data[j].rad / (rand()%2 + 2);
+							pls.data[pls.PlayerNumbers].rad = pls.data[j].rad / (rand() % 2 + 2);
 							pls.PlayerNumbers++;
 						}
-						for (int k = i; k < trs.TrapNumbers-1; k++)
+						for (int k = i; k < trs.TrapNumbers - 1; k++)
 						{
 							trs.data[k].x = trs.data[k + 1].x;
 							trs.data[k].y = trs.data[k + 1].y;
@@ -550,8 +562,6 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 			}
 		}
 
-
-
 	}
 	break;
 	}
@@ -568,6 +578,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 	int tmp;
 	static COLORREF SeedColor[60];
 	static POINT shot;
+
+	static BOOL isStart = FALSE;
 
 	static double ZoomIn;
 
@@ -601,6 +613,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		tmpRECT.right += 600;
 		trs.TrapNumbers = 3;
 		TrapTick = 0;
+		NewTrapPoint.x = rand() % clientRECT.right - 80 + 40;
+		NewTrapPoint.y = rand() % clientRECT.bottom - 80 + 40;
+		PlayTimer = 0;
+		for (int i = 0; i < 5; i++)
+			orion[i] = 0.1;
 		for (int i = 0; i < trs.TrapNumbers; i++)
 		{
 			trs.data[i].x = rand() % clientRECT.right - 80 + 40;
@@ -622,17 +639,29 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		MySeed.nDatanums = 0;
 		MySeed.head = NULL;
 		MySeed.now = NULL;
-
-		SetTimer(hWnd, CandyMovementManage, 50, TimerProc);
-		SetTimer(hWnd, VirusMovementManage, 50, TimerProc);
-		SetTimer(hWnd, TrapMovementManage, 50, TimerProc);
+		
+		if (isStart)
+		{
+			SetTimer(hWnd, CandyMovementManage, 50, TimerProc);
+			SetTimer(hWnd, VirusMovementManage, 50, TimerProc);
+			SetTimer(hWnd, TrapMovementManage, 50, TimerProc);
+		}
+		
 		break;
+
 	case WM_PAINT: //Paint 메세지 불렸을 때
+		
 		//
 		hDC = BeginPaint(hWnd, &ps);
 		memDC = CreateCompatibleDC(hDC);
 		hBitmap = CreateCompatibleBitmap(hDC, clientRECT.right + 800, clientRECT.bottom + 800);
 		SelectObject(memDC, (HBITMAP)hBitmap);
+		//
+		if (isStart == FALSE)
+		{
+			TextOut(hDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2 - 10, L"Press any Key to GameStart.", lstrlen(L"Press any Key to GameStart."));
+			break;
+		}
 		//
 		hBrush = CreateSolidBrush(RGB(255, 255, 255));
 		oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
@@ -709,6 +738,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			SelectObject(memDC, oldBrush);
 			DeleteObject(hBrush);
 			//
+			for (int p = 0; p < 4; p++)
+			{
+				if (TrapTick >= 56 + p * 3 && orion[p] < 17)
+				{
+					hPen = CreatePen(PS_DASH, 4, RGB(255, 0, 0));
+					oldPen = (HPEN)SelectObject(memDC, hPen);
+					Arc(memDC, NewTrapPoint.x - trs.data[0].rad + p * 3, NewTrapPoint.y - trs.data[0].rad + p * 3, NewTrapPoint.x + trs.data[0].rad - p * 3, NewTrapPoint.y + trs.data[0].rad - p * 3,
+						NewTrapPoint.x, NewTrapPoint.y - trs.data[0].rad + p * 3, NewTrapPoint.x - sin(orion[p] / 3) * 10, NewTrapPoint.y - cos(orion[p] / 3) * 10);				//TrapAnim
+					SelectObject(memDC, oldPen);
+					DeleteObject(hPen);
+					orion[p]++;
+				}
+				else if (orion[p] >= 17)
+				{
+					hPen = CreatePen(PS_DASH, 4, RGB(255, 0, 0));
+					oldPen = (HPEN)SelectObject(memDC, hPen);
+					Ellipse(memDC, NewTrapPoint.x - trs.data[0].rad + p * 3, NewTrapPoint.y - trs.data[0].rad + p * 3, NewTrapPoint.x + trs.data[0].rad - p * 3, NewTrapPoint.y + trs.data[0].rad - p * 3);				//TrapAnim
+					SelectObject(memDC, oldPen);
+					DeleteObject(hPen);
+				}
+			}
+			if (orion[3] >= 17)
+				orion[4]++;
+			hBrush = CreateSolidBrush(RGB(255, 255, 255));
+			oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
+			Ellipse(memDC, NewTrapPoint.x - orion[4] + 1, NewTrapPoint.y - orion[4] + 1, NewTrapPoint.x + orion[4] + 1, NewTrapPoint.y + orion[4] + 1);
+			SelectObject(memDC, oldBrush);
+			DeleteObject(hBrush);
+			//
 			hPen = CreatePen(PS_DASH, 2, RGB(255, 0, 0));
 			oldPen = (HPEN)SelectObject(memDC, hPen);
 			for (int i = 0; i < trs.TrapNumbers; i++)
@@ -718,10 +776,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			SelectObject(memDC, oldPen);
 			DeleteObject(hPen);
 			//
-			if (isGameOver == true)
+			if (isGameOver == TRUE)
 			{
+				static WCHAR timer[60];
 				SetBkColor(memDC, RGB(255, 255, 255));
 				TextOut(memDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2 - 10, L"Game Over. Press r to Restart.", 30);
+				wsprintf(timer, L"%d sec, %d score.", PlayTimer / 20,pls.MAXradius*PlayTimer/10);
+				TextOut(memDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2+20, timer, lstrlen(timer));
 			}
 			BitBlt(hDC, 0, 0, clientRECT.right, clientRECT.bottom, memDC, 0, 0, SRCCOPY);
 		}
@@ -802,6 +863,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			SelectObject(memDC, oldBrush);
 			DeleteObject(hBrush);
 			//
+			for (int p = 0; p < 4; p++)
+			{
+				if (TrapTick >= 56 + p * 3 && orion[p] < 17)
+				{
+					hPen = CreatePen(PS_DASH, 4, RGB(255, 0, 0));
+					oldPen = (HPEN)SelectObject(memDC, hPen);
+					Arc(memDC, NewTrapPoint.x*Fixation - trs.data[0].rad*Fixation + p * 3 + FQ, NewTrapPoint.y*Fixation - trs.data[0].rad*Fixation + p * 3 + FQ, NewTrapPoint.x*Fixation + trs.data[0].rad*Fixation - p * 3 + FQ, NewTrapPoint.y *Fixation + trs.data[0].rad*Fixation - p * 3 + FQ,
+						NewTrapPoint.x*Fixation + FQ, NewTrapPoint.y*Fixation - trs.data[0].rad*Fixation + p * 3 + FQ, NewTrapPoint.x*Fixation - sin(orion[p] / 3) * 10 * Fixation + FQ, NewTrapPoint.y*Fixation - cos(orion[p] / 3) * 10 * Fixation + FQ);				//TrapAnim
+					SelectObject(memDC, oldPen);
+					DeleteObject(hPen);
+					orion[p]++;
+				}
+				else if (orion[p] >= 17)
+				{
+					hPen = CreatePen(PS_DASH, 4, RGB(255, 0, 0));
+					oldPen = (HPEN)SelectObject(memDC, hPen);
+					Ellipse(memDC, NewTrapPoint.x*Fixation - trs.data[0].rad*Fixation + p * 3 + FQ, NewTrapPoint.y*Fixation - trs.data[0].rad*Fixation + p * 3 + FQ, NewTrapPoint.x*Fixation + trs.data[0].rad*Fixation - p * 3 + FQ, NewTrapPoint.y *Fixation + trs.data[0].rad*Fixation - p * 3 + FQ);				//TrapAnim
+					SelectObject(memDC, oldPen);
+					DeleteObject(hPen);
+				}
+			}
+			if (orion[3] >= 17)
+				orion[4]++;
+			hBrush = CreateSolidBrush(RGB(255, 255, 255));
+			oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
+			Ellipse(memDC, NewTrapPoint.x*Fixation - orion[4] * Fixation + FQ, NewTrapPoint.y*Fixation - orion[4] * Fixation + FQ, NewTrapPoint.x*Fixation + orion[4] * Fixation+ FQ, NewTrapPoint.y*Fixation + orion[4] * Fixation + FQ);
+			SelectObject(memDC, oldBrush);
+			DeleteObject(hBrush);
+			//
 			hPen = CreatePen(PS_DASH, 2, RGB(255, 0, 0));
 			oldPen = (HPEN)SelectObject(memDC, hPen);
 			for (int i = 0; i < trs.TrapNumbers; i++)
@@ -811,10 +901,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			SelectObject(memDC, oldPen);
 			DeleteObject(hPen);
 			//
-			if (isGameOver == true)
+			if (isGameOver == TRUE)
 			{
+				static WCHAR timer[60];
 				SetBkColor(memDC, RGB(255, 255, 255));
 				TextOut(memDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2 - 10, L"Game Over. Press r to Restart.", 30);
+				wsprintf(timer, L"%d sec, %d score.", PlayTimer / 20, pls.MAXradius*PlayTimer / 10);
+				TextOut(memDC, clientRECT.right / 2 - 100, clientRECT.bottom / 2 + 20, timer, lstrlen(timer));
 			}
 			BitBlt(hDC, 0, 0, clientRECT.right, clientRECT.bottom, memDC, (pls.data[0].x)*Fixation - clientRECT.right / 2 + FQ, (pls.data[0].y)*Fixation - clientRECT.bottom / 2 + FQ, SRCCOPY);
 		}
@@ -827,7 +920,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_LBUTTONDOWN:
-		if (isGameOver == true)
+		if (isGameOver == TRUE)
+			break;
+		if (isStart == FALSE)
 			break;
 		tmp = pls.PlayerNumbers;
 		ClickTick = 0;
@@ -851,7 +946,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 	case WM_RBUTTONDOWN:
 		shot.x = LOWORD(lParam);
 		shot.y = HIWORD(lParam);
-		if (isGameOver == true)
+		if (isGameOver == TRUE)
+			break;
+		if (isStart == FALSE)
 			break;
 		if (pls.data[0].rad > 10)
 		{
@@ -930,8 +1027,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			pls.data[i].FromY = pls.data[i].y;
 		}
 		break;
-
+	case WM_KEYDOWN:
+		if (isStart == FALSE)
+		{
+			isStart = TRUE;
+			goto RESET;
+		}
+		break;
 	case WM_CHAR:
+		if (isStart == FALSE)
+			break;
 		switch (wParam)
 		{
 		case 'r':
@@ -941,13 +1046,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				goto RESET;
 			}
 			break;
+		case 'p':
+			if (isGameOver == TRUE)
+				break;
+			if (KillTimer(hWnd, CandyMovementManage))
+			{
+				KillTimer(hWnd, VirusMovementManage);
+				KillTimer(hWnd, TrapMovementManage);
+				isGameOver = TRUE;
+			}
+			else
+			{
+				SetTimer(hWnd, CandyMovementManage, 50, TimerProc);
+				SetTimer(hWnd, VirusMovementManage, 50, TimerProc);
+				SetTimer(hWnd, TrapMovementManage, 50, TimerProc);
+				isGameOver = FALSE;
+			}
+			break;
 		}
 		break;
 
 	case WM_MOUSEWHEEL:
 	{
 		int zDelta = GET_WHEEL_DELTA_WPARAM(wParam);
-		if (isGameOver == true)
+		if (isGameOver == TRUE)
+			break;
+		if (isStart == FALSE)
 			break;
 		if (zDelta > 0)
 		{
@@ -971,6 +1095,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 	break;
 	case WM_DESTROY: //Destroy 메세지 불렸을 때
 		PostQuitMessage(0); //창 종료
+		KillTimer(hWnd, 1);
+		KillTimer(hWnd, 2);
+		KillTimer(hWnd, 3);
 		return 0;
 	}
 	return(DefWindowProc(hWnd, iMessage, wParam, lParam)); //처리되지 않은 메세지는 여기서 처리
