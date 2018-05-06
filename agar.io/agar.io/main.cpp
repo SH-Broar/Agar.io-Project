@@ -1,3 +1,4 @@
+#pragma comment(lib,"winmm.lib")
 #define _WIN32_WINNT 0x0400
 
 #include <windows.h> // 윈도우 헤더 파일
@@ -7,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <WinUser.h>
+#include "resource.h"
 
 #define windowX 750
 #define windowY 750
@@ -163,6 +165,8 @@ static int PlayTimer;
 static int SeedRifleCounter;
 static POINT star[3];
 static int Bomb;
+static BOOL BombSpark;
+static int SparkTick;
 
 static BOOL FullBlack;
 
@@ -224,7 +228,7 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 				{
 					if (InCircle(pls.data[i].x, pls.data[i].y, star[j].x, star[j].y, pls.data[i].rad + 5))
 					{
-						if (Bomb < 3)
+						if (Bomb < 1)
 						{
 							Bomb++;
 							star[j].x = rand() % clientRECT.right;
@@ -233,7 +237,7 @@ void CALLBACK TimerProc(HWND hWnd, UINT uMsg, UINT idEvent, DWORD dwTime)
 					}
 				}
 			}
-			
+
 
 			if (MySeed.head != NULL)
 			{
@@ -723,6 +727,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 	HBITMAP hBitmap;
 	static BOOL black[5];
 	static BOOL lemon[5];
+	static int FQ = 400;
+	static float Fixation;
 	int tmp;
 	static COLORREF SeedColor[60];
 
@@ -736,6 +742,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 	{
 	case WM_CREATE:
 	RESET:
+		PlaySound(MAKEINTRESOURCE(IDR_WAVE1), g_hInst, SND_RESOURCE | SND_ASYNC);
 		pls.MAXradius = 10;
 		pls.PlayerNumbers = 1;
 		pls.data[0].rad = 10;
@@ -763,6 +770,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		NewTrapPoint.y = rand() % (clientRECT.bottom - 80) + 40;
 		PlayTimer = 0;
 		SeedRifleCounter = 0;
+		SparkTick = 0;
+		Fixation = 1;
+		BombSpark = FALSE;
 		FullBlack = FALSE;
 		for (int i = 0; i < 5; i++)
 			orion[i] = 0.1;
@@ -825,17 +835,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		}
 		//
 		if (FullBlack)
+		{
 			hBrush = CreateSolidBrush(RGB(0, 0, 0));
+			SetBkColor(memDC, RGB(0, 0, 0));
+		}
 		else
+		{
 			hBrush = CreateSolidBrush(RGB(255, 255, 255));
+			SetBkColor(memDC, RGB(255, 255, 255));
+		}
 		oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
 		Rectangle(memDC, tmpRECT.left, tmpRECT.top, tmpRECT.right, tmpRECT.bottom);
 		Rectangle(memDC, clientRECT.left, clientRECT.top, clientRECT.right + ZoomIn * 10, clientRECT.bottom + ZoomIn * 10);
 		SelectObject(memDC, oldBrush);
 		DeleteObject(hBrush);
-		//
-		//함정 출력할 위치
-		//TextOut(hDC, 0, 10, text, 5);
+
+		if (BombSpark == TRUE)
+		{
+			SparkTick++;
+		}
+		if (SparkTick > 20)
+		{
+			BombSpark = FALSE;
+			SparkTick = 0;
+		}
 		//
 		if (FixMode == FALSE)
 		{
@@ -844,7 +867,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			{
 				hBrush = CreateSolidBrush(SeedColor[i]);
 				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-				Ellipse(memDC, Seed[i].x - 5, Seed[i].y - 5, Seed[i].x + 5, Seed[i].y + 5);								//Seed
+				Ellipse(memDC, Seed[i].x - 5 + (SparkTick % 2 * 6), Seed[i].y - 5, Seed[i].x + 5 + (SparkTick % 2 * 6), Seed[i].y + 5);								//Seed
 				SelectObject(memDC, oldBrush);
 				DeleteObject(hBrush);
 			}
@@ -863,7 +886,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 					}
 					hBrush = CreateSolidBrush(tmpNode->c);
 					oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-					Ellipse(memDC, tmpNode->pt.x - 5, tmpNode->pt.y - 5, tmpNode->pt.x + 5, tmpNode->pt.y + 5);
+					Ellipse(memDC, tmpNode->pt.x - 5 + (SparkTick % 2 * 6), tmpNode->pt.y - 5, tmpNode->pt.x + 5 + (SparkTick % 2 * 6), tmpNode->pt.y + 5);
 					SelectObject(memDC, oldBrush);
 					DeleteObject(hBrush);
 
@@ -876,22 +899,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				}
 				hBrush = CreateSolidBrush(tmpNode->c);
 				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-				Ellipse(memDC, tmpNode->pt.x - 5, tmpNode->pt.y - 5, tmpNode->pt.x + 5, tmpNode->pt.y + 5);
+				Ellipse(memDC, tmpNode->pt.x - 5 + (SparkTick % 2 * 6), tmpNode->pt.y - 5, tmpNode->pt.x + 5 + (SparkTick % 2 * 6), tmpNode->pt.y + 5);
 				SelectObject(memDC, oldBrush);
 				DeleteObject(hBrush);
 
 			}
 			//
-			hBrush = CreateHatchBrush(HS_FDIAGONAL, RGB(0, 200, 50));
-			oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
 			SetBkMode(memDC, OPAQUE);
 			SetBkColor(memDC, RGB(240, 120, 0));
 			for (int i = 0; i < pls.PlayerNumbers; i++)
 			{
+				hBrush = CreateHatchBrush(HS_FDIAGONAL, RGB(0, 200, 50));
+				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
+
 				Ellipse(memDC, pls.data[i].x - pls.data[i].rad, pls.data[i].y - pls.data[i].rad, pls.data[i].x + pls.data[i].rad, pls.data[i].y + pls.data[i].rad); //Player
+				if (Bomb >= 1)
+				{
+					hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+					oldPen = (HPEN)SelectObject(memDC, hPen);
+					Ellipse(memDC, pls.data[i].x - pls.data[i].rad / 2, pls.data[i].y - pls.data[i].rad / 2, pls.data[i].x + pls.data[i].rad / 2, pls.data[i].y + pls.data[i].rad / 2); //Player
+					MoveToEx(memDC, pls.data[i].x - pls.data[i].rad / 2, pls.data[i].y - pls.data[i].rad / 2, NULL);
+					LineTo(memDC, pls.data[i].x + pls.data[i].rad / 2, pls.data[i].y + pls.data[i].rad / 2);
+					MoveToEx(memDC, pls.data[i].x + pls.data[i].rad / 2, pls.data[i].y - pls.data[i].rad / 2, NULL);
+					LineTo(memDC, pls.data[i].x - pls.data[i].rad / 2, pls.data[i].y + pls.data[i].rad / 2);
+					SelectObject(memDC, oldPen);
+					DeleteObject(hPen);
+				}
+				SelectObject(memDC, oldBrush);
+				DeleteObject(hBrush);
 			}
-			SelectObject(memDC, oldBrush);
-			DeleteObject(hBrush);
+
+
 			//
 			hBrush = CreateHatchBrush(HS_BDIAGONAL, RGB(50, 50, 0));
 			oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
@@ -977,6 +1015,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 
 			}
 			//
+			hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+			oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
+			hPen = CreatePen(PS_SOLID, 20, RGB(255, 0, 250));
+			oldPen = (HPEN)SelectObject(memDC, hPen);
+			for (int i = 0; i < pls.PlayerNumbers; i++)
+			{
+				Ellipse(memDC, pls.data[i].x - SparkTick * 100, pls.data[i].y - SparkTick * 100, pls.data[i].x + SparkTick * 100, pls.data[i].y + SparkTick * 100); // BombAnim
+			}
+			SelectObject(memDC, oldBrush);
+			DeleteObject(hBrush);
+			SelectObject(memDC, oldPen);
+			DeleteObject(hPen);
+			//
 			if (isGameOver == TRUE)
 			{
 				static WCHAR timer[60];
@@ -987,10 +1038,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			}
 			BitBlt(hDC, 0, 0, clientRECT.right, clientRECT.bottom, memDC, 0, 0, SRCCOPY);
 		}
-		else //Fix
+		else							//-------------------------------------------------------------------------------------------------------Fix
 		{
-			float Fixation;
-			static int FQ = 400;
 			Fixation = (clientRECT.right + ZoomIn * 10) / clientRECT.right;
 
 			if (FullBlack)
@@ -1007,7 +1056,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			{
 				hBrush = CreateSolidBrush(SeedColor[i]);
 				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-				Ellipse(memDC, Seed[i].x*Fixation - 5 - Fixation + FQ, Seed[i].y*Fixation - 5 - Fixation + FQ, Seed[i].x*Fixation + 5 + Fixation + FQ, Seed[i].y*Fixation + 5 + Fixation + FQ);				//Seed
+				Ellipse(memDC, (Seed[i].x + (SparkTick % 2 * 6))*Fixation - 5 - Fixation + FQ, (Seed[i].y + (SparkTick % 2 * 6))*Fixation - 5 - Fixation + FQ,
+					(Seed[i].x + (SparkTick % 2 * 6))*Fixation + 5 + Fixation + FQ, (Seed[i].y + (SparkTick % 2 * 6))*Fixation + 5 + Fixation + FQ);				//Seed
 				SelectObject(memDC, oldBrush);
 				DeleteObject(hBrush);
 			}
@@ -1018,7 +1068,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				{
 					hBrush = CreateSolidBrush(RGB(255, 255, 100));
 					oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-					Rectangle(memDC, star[i].x*Fixation - 5 + FQ, star[i].y*Fixation - 5 + FQ, star[i].x*Fixation + 5 + FQ, star[i].y*Fixation + 5 + FQ);								//Star
+					Rectangle(memDC, (star[i].x + (SparkTick % 2 * 6))*Fixation - 5 + FQ, (star[i].y + (SparkTick % 2 * 6))*Fixation - 5 + FQ,
+						(star[i].x + (SparkTick % 2 * 6))*Fixation + 5 + FQ, (star[i].y + (SparkTick % 2 * 6))*Fixation + 5 + FQ);								//Star
+					Rectangle(memDC, (star[i].x + (SparkTick % 2 * 6))*Fixation - 3 + FQ, (star[i].y + (SparkTick % 2 * 6))*Fixation - 3 + FQ,
+						(star[i].x + (SparkTick % 2 * 6))*Fixation + 3 + FQ, (star[i].y + (SparkTick % 2 * 6))*Fixation + 3 + FQ);								//Star
+					Rectangle(memDC, (star[i].x + (SparkTick % 2 * 6))*Fixation - 1 + FQ, (star[i].y + (SparkTick % 2 * 6))*Fixation - 1 + FQ,
+						(star[i].x + (SparkTick % 2 * 6))*Fixation + 1 + FQ, (star[i].y + (SparkTick % 2 * 6))*Fixation + 1 + FQ);								//Star
 					SelectObject(memDC, oldBrush);
 					DeleteObject(hBrush);
 				}
@@ -1037,7 +1092,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 					}
 					hBrush = CreateSolidBrush(tmpNode->c);
 					oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-					Ellipse(memDC, tmpNode->pt.x*Fixation - 5 - Fixation + FQ, tmpNode->pt.y*Fixation - 5 - Fixation + FQ, tmpNode->pt.x*Fixation + 5 + Fixation + FQ, tmpNode->pt.y*Fixation + 5 + Fixation + FQ);
+					Ellipse(memDC, (tmpNode->pt.x + (SparkTick % 2 * 6))*Fixation - 5 - Fixation + FQ, (tmpNode->pt.y + (SparkTick % 2 * 6))*Fixation - 5 - Fixation + FQ,
+						(tmpNode->pt.x + (SparkTick % 2 * 6))*Fixation + 5 + Fixation + FQ, (tmpNode->pt.y + (SparkTick % 2 * 6))*Fixation + 5 + Fixation + FQ);
 					SelectObject(memDC, oldBrush);
 					DeleteObject(hBrush);
 
@@ -1050,7 +1106,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				}
 				hBrush = CreateSolidBrush(tmpNode->c);
 				oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
-				Ellipse(memDC, tmpNode->pt.x*Fixation - 5 - Fixation + FQ, tmpNode->pt.y*Fixation - 5 - Fixation + FQ, tmpNode->pt.x*Fixation + 5 + Fixation + FQ, tmpNode->pt.y*Fixation + 5 + Fixation + FQ);
+				Ellipse(memDC, (tmpNode->pt.x + (SparkTick % 2 * 6))*Fixation - 5 - Fixation + FQ, (tmpNode->pt.y + (SparkTick % 2 * 6))*Fixation - 5 - Fixation + FQ,
+					(tmpNode->pt.x + (SparkTick % 2 * 6))*Fixation + 5 + Fixation + FQ, (tmpNode->pt.y + (SparkTick % 2 * 6))*Fixation + 5 + Fixation + FQ);
 				SelectObject(memDC, oldBrush);
 				DeleteObject(hBrush);
 
@@ -1063,6 +1120,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			for (int i = 0; i < pls.PlayerNumbers; i++)
 			{
 				Ellipse(memDC, pls.data[i].x*Fixation - pls.data[i].rad*Fixation + FQ, pls.data[i].y*Fixation - pls.data[i].rad*Fixation + FQ, pls.data[i].x*Fixation + pls.data[i].rad*Fixation + FQ, pls.data[i].y*Fixation + pls.data[i].rad*Fixation + FQ); //Player
+				if (Bomb >= 1)
+				{
+					hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+					oldPen = (HPEN)SelectObject(memDC, hPen);
+					Ellipse(memDC, pls.data[i].x*Fixation - pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].y*Fixation - pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].x*Fixation + pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].y *Fixation + pls.data[i].rad*Fixation / 2 + FQ); //Player
+					MoveToEx(memDC, pls.data[i].x*Fixation - pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].y*Fixation - pls.data[i].rad*Fixation / 2 + FQ, NULL);
+					LineTo(memDC, pls.data[i].x*Fixation + pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].y*Fixation + pls.data[i].rad*Fixation / 2 + FQ);
+					MoveToEx(memDC, pls.data[i].x*Fixation + pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].y*Fixation - pls.data[i].rad*Fixation / 2 + FQ, NULL);
+					LineTo(memDC, pls.data[i].x*Fixation - pls.data[i].rad*Fixation / 2 + FQ, pls.data[i].y*Fixation + pls.data[i].rad*Fixation / 2 + FQ);
+					SelectObject(memDC, oldPen);
+					DeleteObject(hPen);
+				}
 			}
 			SelectObject(memDC, oldBrush);
 			DeleteObject(hBrush);
@@ -1148,6 +1217,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 
 			}
 			//
+			hBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
+			oldBrush = (HBRUSH)SelectObject(memDC, hBrush);
+			hPen = CreatePen(PS_SOLID, 20, RGB(255, 0, 250));
+			oldPen = (HPEN)SelectObject(memDC, hPen);
+			for (int i = 0; i < pls.PlayerNumbers; i++)
+			{
+				Ellipse(memDC, pls.data[i].x*Fixation - SparkTick * 100 + FQ, pls.data[i].y*Fixation - SparkTick * 100 + FQ,
+					pls.data[i].x*Fixation + SparkTick * 100 + FQ, pls.data[i].y*Fixation + SparkTick * 100 + FQ); // BombAnim
+			}
+			SelectObject(memDC, oldBrush);
+			DeleteObject(hBrush);
+			SelectObject(memDC, oldPen);
+			DeleteObject(hPen);
+			//
 			if (isGameOver == TRUE)
 			{
 				static WCHAR timer[60];
@@ -1167,9 +1250,68 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 		break;
 
 	case WM_LBUTTONDOWN:
+	{
 		if (isGameOver == TRUE)
 			break;
 		if (isStart == FALSE)
+			break;
+		BOOL b = FALSE;
+		for (int i = 0; i < pls.PlayerNumbers; i++)
+		{
+			if (FixMode == FALSE)
+			{
+				if (InCircle(destination.x, destination.y, pls.data[i].x, pls.data[i].y, pls.data[i].rad))
+				{
+					Player_Data tmpPlayer;
+					tmpPlayer.FromX = pls.data[0].FromX;
+					tmpPlayer.FromY = pls.data[0].FromY;
+					tmpPlayer.rad = pls.data[0].rad;
+					tmpPlayer.x = pls.data[0].x;
+					tmpPlayer.y = pls.data[0].y;
+
+					pls.data[0].FromX = pls.data[i].FromX;
+					pls.data[0].FromY = pls.data[i].FromY;
+					pls.data[0].rad = pls.data[i].rad;
+					pls.data[0].x = pls.data[i].x;
+					pls.data[0].y = pls.data[i].y;
+
+					pls.data[i].FromX = tmpPlayer.FromX;
+					pls.data[i].FromY = tmpPlayer.FromY;
+					pls.data[i].rad = tmpPlayer.rad;
+					pls.data[i].x = tmpPlayer.x;
+					pls.data[i].y = tmpPlayer.y;
+					InvalidateRect(hWnd, NULL, false);
+					b = TRUE;
+				}
+			}
+			else
+			{
+				if (InCircle(destination.x, destination.y, clientRECT.right / 2 + (pls.data[i].x - pls.data[0].x)*Fixation, clientRECT.bottom / 2 + (pls.data[i].y - pls.data[0].y)*Fixation, pls.data[i].rad*Fixation))
+				{
+					Player_Data tmpPlayer;
+					tmpPlayer.FromX = pls.data[0].FromX;
+					tmpPlayer.FromY = pls.data[0].FromY;
+					tmpPlayer.rad = pls.data[0].rad;
+					tmpPlayer.x = pls.data[0].x;
+					tmpPlayer.y = pls.data[0].y;
+
+					pls.data[0].FromX = pls.data[i].FromX;
+					pls.data[0].FromY = pls.data[i].FromY;
+					pls.data[0].rad = pls.data[i].rad;
+					pls.data[0].x = pls.data[i].x;
+					pls.data[0].y = pls.data[i].y;
+
+					pls.data[i].FromX = tmpPlayer.FromX;
+					pls.data[i].FromY = tmpPlayer.FromY;
+					pls.data[i].rad = tmpPlayer.rad;
+					pls.data[i].x = tmpPlayer.x;
+					pls.data[i].y = tmpPlayer.y;
+					InvalidateRect(hWnd, NULL, false);
+					b = TRUE;
+				}
+			}
+		}
+		if (b == TRUE)
 			break;
 		tmp = pls.PlayerNumbers;
 		ClickTick = 0;
@@ -1188,7 +1330,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 				pls.PlayerNumbers++;
 			}
 		}
-		break;
+	}
+	break;
 
 	case WM_RBUTTONDOWN:
 		shot.x = LOWORD(lParam);
@@ -1221,8 +1364,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 					tmpNode->Tickx = (shot.x - clientRECT.right / 2) / 16;
 					tmpNode->Ticky = (shot.y - clientRECT.bottom / 2) / 16;
 				}
-				tmpNode->pt.x = pls.data[0].x + tmpNode->Tickx * 2;
-				tmpNode->pt.y = pls.data[0].y + tmpNode->Ticky * 2;
+				tmpNode->pt.x = pls.data[0].x + tmpNode->Tickx * pls.data[0].rad / 17;
+				tmpNode->pt.y = pls.data[0].y + tmpNode->Ticky * pls.data[0].rad / 17;
 
 				MySeed.head = tmpNode;
 				MySeed.now = MySeed.head;
@@ -1255,8 +1398,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 						tmpNode->Tickx = (shot.x - clientRECT.right / 2) / 16;
 						tmpNode->Ticky = (shot.y - clientRECT.bottom / 2) / 16;
 					}
-					tmpNode->pt.x = pls.data[0].x + tmpNode->Tickx * 2;
-					tmpNode->pt.y = pls.data[0].y + tmpNode->Ticky * 2;
+					tmpNode->pt.x = pls.data[0].x + tmpNode->Tickx * pls.data[0].rad / 17;
+					tmpNode->pt.y = pls.data[0].y + tmpNode->Ticky * pls.data[0].rad / 17;
 
 					MySeed.now = tmpNode;
 					MySeed.nDatanums++;
@@ -1290,13 +1433,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			break;
 		if (wParam == VK_RETURN)
 		{
-			if (Bomb > 0)
+			if (Bomb > 0 && pls.data[0].rad > 10)
 			{
 				Bomb--;
 
+				trs.TrapNumbers = 0;
+				for (int i = 0; i < vis.VirusNumbers; i++)
+				{
+					vis.data[i].rad /= 2;
+				}
+				for (int i = 0; i < pls.PlayerNumbers; i++)
+				{
+					pls.data[i].rad /= 2;
+				}
+				BombSpark = TRUE;
 			}
 		}
 		break;
+
 	case WM_CHAR:
 	{
 		if (isStart == FALSE)
